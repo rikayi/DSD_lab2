@@ -20,7 +20,7 @@ client = hazelcast.HazelcastClient(
     ]
 )
 
-my_map = client.get_map("lab4")
+my_map = client.get_map("lab6_1")
 
 
 @app.post("/lab2", status_code=200)
