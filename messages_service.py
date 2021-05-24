@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 import pika
 import threading
-
+import consul
+import sys
+import uvicorn
 
 def run_in_thread(fn):
     def run(*args, **kwargs):
@@ -38,3 +40,8 @@ app = FastAPI()
 def root():
     print(data)
     return str(data)
+
+
+if __name__ == "__main__":
+    print(sys.argv[1], sys.argv[2])
+    uvicorn.run("logging_service:app", port=sys.argv[1])

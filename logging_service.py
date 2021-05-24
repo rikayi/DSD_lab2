@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import sys
 import uvicorn
+import consul
 
 
 class Message(BaseModel):
@@ -12,6 +13,15 @@ class Message(BaseModel):
 
 app = FastAPI()
 
+
+def register_service(port):
+    c = consul.Consul()
+    check_http = consul.Check.http(f'http://192.168.65.2:{port}/health', interval='2s')
+    c.agent.service.register('facade_service',
+                             service_id=f'facade_service_{port}',
+                             port=port,
+                             check=check_http
+                             )
 
 client = hazelcast.HazelcastClient(
     cluster_name="dev",
