@@ -17,26 +17,34 @@ def register_service(port):
     check_http = consul.Check.http(f'http://192.168.65.2:{port}/health', interval='2s')
     c.agent.service.register('facade_service',
                              service_id=f'facade_service_{port}',
-                             port=port,
+                             address='http://127.0.0.1',
+                             port=int(port),
                              check=check_http
                              )
-
 
 
 LOGGING_HOSTS = ('http://127.0.0.1:8011/lab2',
                  'http://127.0.0.1:8012/lab2',
                  'http://127.0.0.1:8013/lab2')
 
-MESSAGES_HOSTS = ('http://127.0.0.1:8002/lab2',
-                  'http://127.0.0.1:8003/lab2')
+MESSAGES_HOSTS = ('http://127.0.0.1:8021/lab2',
+                  'http://127.0.0.1:8022/lab2')
 
 
 def get_logging_service():
-    return random.choice(LOGGING_HOSTS)
+    c = consul.Consul()
+    index, services = c.health.service('logging_service', passing=True)
+    addresses = [service_info['Service']['Address'] + ':' + str(service_info['Service']['Port']) + '/lab2'
+                 for service_info in services]
+    return random.choice(addresses)
 
 
 def get_messages_service():
-    return random.choice(MESSAGES_HOSTS)
+    c = consul.Consul()
+    index, services = c.health.service('messages_service', passing=True)
+    addresses = [service_info['Service']['Address'] + ':' + str(service_info['Service']['Port']) + '/lab2'
+                 for service_info in services]
+    return random.choice(addresses)
 
 
 @app.get("/health", status_code=200)
@@ -46,12 +54,15 @@ def message_handler():
 
 @app.post("/lab2", status_code=200)
 def message_handler(msg: str):
+    c = consul.Consul()
+    _, rabbit_host = c.kv.get('rabbit_host')
+    _, queue_name = c.kv.get('queue_name')
     httpx.post(get_logging_service(), data=json.dumps({'id': str(uuid.uuid4()), 'msg': msg}))
     connection = pika.BlockingConnection(
-        pika.ConnectionParameters(host='localhost'))
+        pika.ConnectionParameters(host=rabbit_host['Value'].decode().strip('"')))
     channel = connection.channel()
-    channel.queue_declare(queue='lab6_1')
-    channel.basic_publish(exchange='', routing_key='lab6_1', body=msg)
+    channel.queue_declare(queue=queue_name['Value'].decode().strip('"'))
+    channel.basic_publish(exchange='', routing_key=queue_name['Value'].decode().strip('"'), body=msg)
     connection.close()
 
 
@@ -63,8 +74,8 @@ def message_handler():
 
 
 if __name__ == "__main__":
-    print(sys.argv[1], sys.argv[2])
+    print(sys.argv[1])
     register_service(sys.argv[1])
-    uvicorn.run("logging_service:app", port=sys.argv[1])
+    uvicorn.run("facade_service:app", port=sys.argv[1])
 
 

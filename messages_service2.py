@@ -2,8 +2,6 @@ from fastapi import FastAPI
 import pika
 import threading
 import consul
-import sys
-import uvicorn
 
 
 app = FastAPI()
@@ -14,6 +12,7 @@ def register_service(port):
     check_http = consul.Check.http(f'http://192.168.65.2:{port}/health', interval='2s')
     c.agent.service.register('messages_service',
                              service_id=f'meassages_service_{port}',
+                             address='http://127.0.0.1',
                              port=int(port),
                              check=check_http
                              )
@@ -56,8 +55,6 @@ def root():
 
 
 MSG_LIST = []
+consume_loop()
+register_service(8021)
 
-if __name__ == "__main__":
-    consume_loop()
-    register_service(sys.argv[1])
-    uvicorn.run("messages_service:app", port=sys.argv[1])
